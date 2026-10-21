@@ -1,0 +1,5 @@
+/build-workspace/
+/better-sqlite3-13.0.3/
+/*.tgz
+/tools/__pycache__/
+/tests/__pycache__/
