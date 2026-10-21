@@ -19,15 +19,15 @@ jobs:
         with:
           node-version: '22'
       - name: Check scripts and package patch
-        working-directory: ports/better-sqlite3/13.0.3
+        working-directory: ports/better-sqlite3/13.0.3/electron-oh
         shell: bash
         run: |
           set -euo pipefail
           bash -n build-electron-oh.sh
-          sh -n publish.sh
+          sh -n ../publish.sh
           python3 -m compileall -q tools tests
           python3 tests/test-publication.py
-          for file in tests/*.cjs examples/electron-oh/*.cjs; do node --check "$file"; done
+          for file in tests/*.cjs examples/*.cjs; do node --check "$file"; done
           python3 - <<'PY'
           import hashlib, tarfile, urllib.request
           from pathlib import Path
@@ -38,4 +38,4 @@ jobs:
           with tarfile.open('baseline.tgz') as archive:
               archive.extractall('baseline', filter='data')
           PY
-          patch --dry-run --batch -d baseline/package -p1 -i "$PWD/patchs/0003-electron-oh-package.patch"
+          patch --dry-run --batch -d baseline/package -p1 -i "$PWD/../patchs/0003-electron-oh-package.patch"

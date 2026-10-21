@@ -9,11 +9,62 @@
 已验证组合：OpenHarmony arm64、Electron-OH 37.2.0、内置 Node 22.17.0、N-API 10。
 独立 Node 回归使用鸿蒙 Node 24.13.0。版本号相同的运行时也须校验实际文件哈希。
 
-上游源码版本仍为 13.0.3；候选 npm 包使用下一补丁版本的 SemVer 预发布号
-`13.0.4-electron-oh.0`，独立 dist-tag 为 `electron-oh`。这样不会使用低于已发布
-13.0.3 的 `13.0.3-...` 预发布号；也不修改现有 Node 的 latest。
-预发布版本标识的是分发包变更，不表示源码已升级至上游 13.0.4。
-正式稳定版本和命名由维护者统一安排；当前不发布。
+上游源码和 npm 预发布包均以 13.0.3 为基线；候选 npm 包版本为
+`13.0.3-electron-oh.0`，独立 dist-tag 为 `electron-oh`。应用显式安装该预发布版本
+或 electron-oh tag，原 Node 包的 latest 保持不变。当前不发布。
+
+## 仓库目录与文件职责
+
+新增实现集中在与 patchs 同级的 electron-oh/，原 Node 构建和发布入口保留原位置：
+
+```text
+ports/better-sqlite3/13.0.3/
+├── build.sh                         原 Node 构建入口
+├── publish.sh                       Node 发布入口，增加重复发布保护
+├── patchs/
+│   ├── 0001-update-package-json.patch
+│   ├── 0002-openharmony-platform-support.patch
+│   └── 0003-electron-oh-package.patch
+└── electron-oh/
+    ├── .gitignore
+    ├── README.md
+    ├── build-electron-oh.sh
+    ├── electron-oh.lock.json
+    ├── node-api-headers.lock.json
+    ├── examples/main.cjs
+    ├── tests/
+    └── tools/
+```
+
+| 文件（相对 electron-oh/） | 功能 |
+| --- | --- |
+| .gitignore | 排除本目录下载基线、临时包及 Python 缓存。 |
+| README.md | 构建、依赖来源、HAP 接入和验证说明；打包时复制为包根目录 README.electron-oh.md。 |
+| build-electron-oh.sh | 独立构建入口，按脚本自身目录调用 Python，不依赖调用者工作目录。 |
+| electron-oh.lock.json | 固定包版本、Electron/Node/N-API、shim、运行时及 addon 源码身份。 |
+| node-api-headers.lock.json | 固定四份公开 Node-API 头文件的 SHA-256。 |
+| examples/main.cjs | Electron 主进程使用 nativeBinding 的精简接入示例。 |
+| tests/database-smoke.cjs | 两宿主共用的真实 SQL、事务、UDF、聚合、BigInt 等断言。 |
+| tests/electron-oh-smoke.cjs | 检查 Electron 宿主、实际原生文件哈希并执行共享断言。 |
+| tests/node-smoke.cjs | 在独立鸿蒙 Node 中检查原默认加载路径，不传 nativeBinding。 |
+| tests/verify-package.py | 对比 registry 基线与候选 tarball，检查原文件不变及新增文件清单。 |
+| tests/test-package-contract.py | 六类负向包验证：覆盖 Node、改 loader、缺文件、改哈希、混入运行时和改入口。 |
+| tests/test-publication.py | 以 npm 替身检查原 Node 发布入口的六种情形，不访问发布接口。 |
+| tools/electron_oh.py | 交叉编译、链接 shim/静态 libc++、ELF 校验、可选签名和独立打包。 |
+| tools/ci-build-electron-oh.py | 获取并校验 Node 基线，调用本目录构建入口，生成候选包和比较报告；不发布。 |
+| tools/prepare-electron-oh-deps.py | 校验导入官方发行 ZIP、shim 和运行时，生成本地依赖缓存。 |
+
+保留在本目录之外的四个修改文件：
+
+| 文件 | 保留位置的原因与作用 |
+| --- | --- |
+| ../patchs/0003-electron-oh-package.patch | 与既有补丁放在一起；仅调整候选包版本与文档 files 清单。 |
+| ../publish.sh | 现有 Node CI 的固定入口；保持 latest 发布语义，已发布版本跳过，异常查询和 Electron 预发布拒绝。 |
+| 仓库根 .github/workflows/better-sqlite3-electron-oh-checks.yml | GitHub 只在工作流目录识别入口；调用本目录的宿主静态检查及发布保护测试。 |
+| 仓库根 .github/workflows/better-sqlite3-electron-oh-build.yml | 手动调用本目录 CI 构建入口，使用受信任 self-hosted runner，上传验证包，不发布 npm。 |
+
+原 build.sh 和 0001/0002 补丁没有修改。仓库中的 README 路径与 npm 中的文档路径
+不同，但 npm 包的默认入口、JS、Node 二进制和预编译目录布局不随本次整理改变。
 
 ## 构建依赖来源
 
@@ -43,7 +94,8 @@ python3 tools/prepare-electron-oh-deps.py \
 
 ## 构建与打包
 
-需要 Bash、Python >= 3.11、patch、Node/npm、OHOS NDK。
+需要 Bash、Python >= 3.12、patch、Node/npm、OHOS NDK。
+下列相对路径命令均在 ports/better-sqlite3/13.0.3/electron-oh/ 下执行。
 先运行原 Node build.sh，或解压已经发布的 @ohos-ports/better-sqlite3@13.0.3 tarball，
 得到含 SQLite amalgamation、defines.gypi 和 Node 预编译文件的基线包。
 
@@ -51,7 +103,7 @@ python3 tools/prepare-electron-oh-deps.py \
 cd /path/to/prepared-node-package
 npm install --ignore-scripts --omit=dev --no-save --package-lock=false node-addon-api@8.9.2
 
-/path/to/port/build-electron-oh.sh \
+/path/to/port/electron-oh/build-electron-oh.sh \
   --source /path/to/prepared-node-package \
   --output /path/to/new-candidate-directory \
   --ndk /path/to/openharmony/native \
@@ -120,7 +172,7 @@ app.whenReady().then(() => {
 上述路径是已验证模板的实际安装路径；变更 HAP 模块布局后应重新确认。
 数据库由主进程管理，renderer 通过应用 IPC 访问。普通 Node 仍直接 new Database(file)，
 不传 nativeBinding，继续使用原 Node 预编译文件。
-精简示例见 examples/electron-oh/main.cjs。
+精简示例见仓库本目录中的 examples/main.cjs。
 
 ## 验证与 CI
 
@@ -137,8 +189,9 @@ CI 分为独立的宿主静态检查，以及手动触发的受信任 self-hoste
 ELECTRON_OH_RUNTIME_LIBRARY；每次仍校验哈希。当前官方下载需认证且 NDK 需安装，
 所以不假定公共 Ubuntu runner 可匿名取得全部依赖。手动任务上传候选 tgz 和比较报告，
 不调用 npm publish，不把 ELF 检查冒充真机测试。不要将未审阅 PR 送入特权 runner。
-GitCode 目录存放的是面向 ohos-ports GitHub 仓库的 workflow 文件；需移入其 .github/workflows
-并配置 runner 后才会执行，当前没有声称远端 CI 已跑通。
+workflow 入口保留在仓库根 .github/workflows，构建与测试实现集中在本目录。
+宿主静态检查可随 PR 触发；手动交叉构建需维护者先配置 runner 和经过锁定校验的依赖。
+本地构建通过不等于远端 Actions 或真机测试已通过。
 
 ## 发布隔离
 

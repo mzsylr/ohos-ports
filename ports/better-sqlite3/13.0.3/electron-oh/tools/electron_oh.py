@@ -11,7 +11,8 @@ import subprocess
 import tempfile
 import urllib.request
 
-PORT = Path(__file__).resolve().parents[1]
+ELECTRON = Path(__file__).resolve().parents[1]
+PORT = ELECTRON.parent
 REL = Path("prebuilds/electron-oh/37.2.0/openharmony-arm64")
 
 
@@ -40,7 +41,7 @@ def snapshot(root):
 
 
 def build(args):
-    lock = json.loads((PORT / "electron-oh.lock.json").read_text())
+    lock = json.loads((ELECTRON / "electron-oh.lock.json").read_text())
     source = args.source.resolve(strict=True)
     output = args.output.resolve()
     require(not output.exists(), "output already exists; choose a new output directory")
@@ -66,7 +67,7 @@ def build(args):
     require(args.sign_tool is not None or args.allow_unsigned,
             "provide --sign-tool binary-sign-tool, or --allow-unsigned for local HAP testing only")
     compiler = capture(cc, "--version").splitlines()[0]
-    headers_lock = json.loads((PORT / "node-api-headers.lock.json").read_text())
+    headers_lock = json.loads((ELECTRON / "node-api-headers.lock.json").read_text())
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="better-sqlite3-electron-oh-") as temp:
         work = Path(temp)
@@ -117,7 +118,7 @@ def build(args):
             shutil.copytree(source, staging, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns("node_modules", "build", ".git", "._*"))
             run("patch", "--batch", "-p1", "-i", PORT / "patchs/0003-electron-oh-package.patch", cwd=staging)
-            shutil.copy2(PORT / "README.electron-oh.md", staging)
+            shutil.copy2(ELECTRON / "README.md", staging / "README.electron-oh.md")
             dest = staging / REL
             dest.mkdir(parents=True)
             shutil.copy2(binary, dest / binary.name)

@@ -10,7 +10,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-PORT = Path(__file__).resolve().parents[1]
+ELECTRON = Path(__file__).resolve().parents[1]
 
 
 def digest(path):
@@ -33,7 +33,7 @@ def main():
     parser.add_argument('--archive', type=Path, help='local official release ZIP; preferred for authenticated downloads')
     parser.add_argument('--output', type=Path, required=True, help='new cache directory')
     args = parser.parse_args()
-    lock = json.loads((PORT / 'electron-oh.lock.json').read_text())
+    lock = json.loads((ELECTRON / 'electron-oh.lock.json').read_text())
     source = lock['runtimeSource']
     output = args.output.resolve()
     if output.exists():

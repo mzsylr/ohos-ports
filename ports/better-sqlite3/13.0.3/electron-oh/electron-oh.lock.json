@@ -1,6 +1,6 @@
 {
   "upstreamVersion": "13.0.3",
-  "packageVersion": "13.0.4-electron-oh.0",
+  "packageVersion": "13.0.3-electron-oh.0",
   "electronOhVersion": "37.2.0",
   "nodeVersion": "22.17.0",
   "napiVersion": 10,

@@ -25,7 +25,7 @@ jobs:
           npm --version
       - name: Build and compare actual npm tarballs
         shell: bash
-        working-directory: ports/better-sqlite3/13.0.3
+        working-directory: ports/better-sqlite3/13.0.3/electron-oh
         run: |
           set -euo pipefail
           python3 tools/ci-build-electron-oh.py \

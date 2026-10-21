@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 
-PORT = Path(__file__).resolve().parents[1]
+PORT = Path(__file__).resolve().parents[2]
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
              ('auth-error', '13.0.3', False, False),
              ('network-error', '13.0.3', False, False),
              ('unexpected', '13.0.3', False, False),
-             ('missing', '13.0.4-electron-oh.0', False, False)]
+             ('missing', '13.0.3-electron-oh.0', False, False)]
     with tempfile.TemporaryDirectory(prefix='better-sqlite3-release-test-') as temp:
         root = Path(temp)
         package = root / 'better-sqlite3-13.0.3'

@@ -9,7 +9,7 @@ import subprocess
 import tarfile
 import urllib.request
 
-PORT = Path(__file__).resolve().parents[1]
+ELECTRON = Path(__file__).resolve().parents[1]
 BASELINE_URL = 'https://registry.npmjs.org/@ohos-ports/better-sqlite3/-/better-sqlite3-13.0.3.tgz'
 BASELINE_SHA256 = 'bcd5acef74f8077ba2d803b6297885668088eaa0cb9dc618a2b2a48ffd8aa83c'
 
@@ -38,17 +38,17 @@ def main():
     run('npm', 'install', '--ignore-scripts', '--omit=dev', '--no-save', '--package-lock=false',
         'node-addon-api@8.9.2', cwd=source)
     output = work / 'candidate'
-    run('bash', PORT / 'build-electron-oh.sh', '--source', source, '--output', output,
+    run('bash', ELECTRON / 'build-electron-oh.sh', '--source', source, '--output', output,
         '--ndk', os.environ['OHOS_NDK'], '--shim', os.environ['ELECTRON_OH_SHIM'],
         '--runtime-library', os.environ['ELECTRON_OH_RUNTIME_LIBRARY'], '--allow-unsigned')
     run('npm', 'pack', '--ignore-scripts', '--pack-destination', artifacts, cwd=output)
     candidates = [p for p in artifacts.glob('*.tgz') if p != baseline]
     assert len(candidates) == 1
     candidate = candidates[0]
-    report = subprocess.check_output(['python3', str(PORT / 'tests/verify-package.py'),
+    report = subprocess.check_output(['python3', str(ELECTRON / 'tests/verify-package.py'),
                                       str(baseline), str(candidate)], text=True)
     (artifacts / 'package-comparison.json').write_text(report)
-    run('python3', PORT / 'tests/test-package-contract.py', baseline, candidate)
+    run('python3', ELECTRON / 'tests/test-package-contract.py', baseline, candidate)
     (artifacts / 'build-result.json').write_text(json.dumps({
         'status':'built-not-published', 'candidateSha256':hashlib.sha256(candidate.read_bytes()).hexdigest(),
         'baselineSha256':BASELINE_SHA256, 'nodeRuntime':'not-run', 'electronOhHap':'not-run',

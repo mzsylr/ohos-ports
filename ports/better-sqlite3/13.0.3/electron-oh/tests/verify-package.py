@@ -20,7 +20,7 @@ def verify(baseline, candidate):
         if name != "package.json":
             assert updated.get(name) == content, "original package file changed/missing: " + name
     old, new = json.loads(original["package.json"]), json.loads(updated["package.json"])
-    assert new["version"] == "13.0.4-electron-oh.0"
+    assert new["version"] == "13.0.3-electron-oh.0"
     new["version"] = old["version"]
     new["files"].remove("README.electron-oh.md")
     assert old == new, "unexpected package metadata change"
