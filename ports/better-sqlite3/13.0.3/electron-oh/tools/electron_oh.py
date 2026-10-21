@@ -11,6 +11,8 @@ import subprocess
 import tempfile
 import urllib.request
 
+from release_materials import load_materials, notices
+
 ELECTRON = Path(__file__).resolve().parents[1]
 PORT = ELECTRON.parent
 REL = Path("prebuilds/electron-oh/37.2.0/openharmony-arm64")
@@ -42,6 +44,8 @@ def snapshot(root):
 
 def build(args):
     lock = json.loads((ELECTRON / "electron-oh.lock.json").read_text())
+    release_materials, _ = load_materials()
+    notice_bytes = notices()
     source = args.source.resolve(strict=True)
     output = args.output.resolve()
     require(not output.exists(), "output already exists; choose a new output directory")
@@ -64,8 +68,23 @@ def build(args):
     cc, cxx = tools / "clang", tools / "clang++"
     readelf, nm = tools / "llvm-readelf", tools / "llvm-nm"
     sdk_meta = json.loads((ndk / "oh-uni-package.json").read_text())
-    require(args.sign_tool is not None or args.allow_unsigned,
-            "provide --sign-tool binary-sign-tool, or --allow-unsigned for local HAP testing only")
+    sdk_inputs = release_materials["sdkInputs"]
+    require(sdk_meta["version"] == sdk_inputs["version"] and
+            sdk_meta["apiVersion"] == sdk_inputs["apiVersion"], "SDK does not match the pinned notices")
+    for name, digest in sdk_inputs["sha256"].items():
+        require(sha(ndk / name) == digest, "SDK input/notice checksum mismatch: " + name)
+    require(args.sign_tool is not None or args.allow_unsigned or args.for_hap_distribution,
+            "select local unsigned/self-sign testing, or an approved HAP-distribution build")
+    if args.for_hap_distribution:
+        authorization = release_materials["shimAuthorization"]
+        decision = release_materials["signatureDecision"]
+        require(authorization["status"] == "approved" and authorization.get("reviewUrl") and
+                authorization.get("licenseDocument") in
+                {item["file"] for item in release_materials["documents"]},
+                "HAP-distribution build requires reviewed shim authorization and pinned license text")
+        require(decision["status"] == "approved" and decision.get("reviewUrl") and
+                decision["mode"] == "hap-consumer-signing",
+                "HAP-distribution build requires maintainer approval of the signing policy")
     compiler = capture(cc, "--version").splitlines()[0]
     headers_lock = json.loads((ELECTRON / "node-api-headers.lock.json").read_text())
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -133,19 +152,17 @@ def build(args):
                 "sourcePathRemapping": {"source": "/usr/src/better-sqlite3", "temporary": "/usr/src/better-sqlite3-build"},
                 "sqliteSourceSha256": sha(sqlite / "sqlite3.c"), "addonSourceSha256": lock["sourceSha256"],
                 "binary": {"file": binary.name, "sha256": sha(binary), "needed": needed,
-                           "signature": "self-signed" if signed else "unsigned-local-only"},
-                "redistributionNotices": "pending-review",
+                           "signature": "self-signed-local-only" if signed else
+                           "unsigned-for-hap-signing" if args.for_hap_distribution else "unsigned-local-only"},
+                "redistributionNotices": release_materials["shimAuthorization"]["status"],
+                "noticesSha256": hashlib.sha256(notice_bytes).hexdigest(),
+                "releaseMaterialsLockSha256": sha(ELECTRON / "release-materials.lock.json"),
+                "sdkInputSha256": sdk_inputs["sha256"],
                 "nodeCompatibility": {"unchangedFiles": before},
                 "validation": {"elf": "passed", "nodeRuntime": "not-run", "electronOhHap": "not-run"},
             }
             (dest / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-            (dest / "THIRD_PARTY_NOTICES.txt").write_text(
-                "better-sqlite3: MIT; retain the package LICENSE.\n"
-                "SQLite: public domain; see deps/sqlite3/sqlite3.c.\n"
-                "node-addon-api and Node-API headers: MIT; see their upstream LICENSE files.\n"
-                "Electron N-API shim is statically linked. Redistributors must include the\n"
-                "license notice supplied with their Electron-OH shim distribution.\n"
-                "libc++ is statically linked from the OHOS NDK; retain its LLVM notices.\n")
+            (dest / "THIRD_PARTY_NOTICES.txt").write_bytes(notice_bytes)
             require(snapshot(staging) == before, "packaging modified Node loaders or prebuild")
             staging.rename(output)
         finally:
@@ -162,8 +179,11 @@ def main():
     parser.add_argument("--ndk", type=Path, required=True, help="OHOS native SDK root (llvm/, sysroot/)")
     parser.add_argument("--shim", type=Path, required=True, help="electron-napi-library root")
     parser.add_argument("--runtime-library", type=Path, required=True, help="matching Electron-OH libelectron.so")
-    parser.add_argument("--sign-tool", type=Path, help="binary-sign-tool executable")
-    parser.add_argument("--allow-unsigned", action="store_true", help="local HAP tests only; never publish")
+    signing = parser.add_mutually_exclusive_group(required=True)
+    signing.add_argument("--sign-tool", type=Path, help="binary-sign-tool for local self-sign testing only")
+    signing.add_argument("--allow-unsigned", action="store_true", help="local HAP tests only; never publish")
+    signing.add_argument("--for-hap-distribution", action="store_true",
+                         help="unsigned ELF for app-side HAP signing; requires approved release materials")
     args = parser.parse_args()
     try:
         build(args)

@@ -30,6 +30,8 @@ def verify(baseline, candidate):
     assert binary[:4] == b"\x7fELF"
     assert binary[18:20] == b"\xb7\x00", "expected AArch64 ELF"
     assert hashlib.sha256(binary).hexdigest() == manifest["binary"]["sha256"]
+    assert hashlib.sha256(updated[prefix + "THIRD_PARTY_NOTICES.txt"]).hexdigest() == \
+        manifest["noticesSha256"], "notice text checksum mismatch"
     assert manifest["nodeCompatibility"]["unchangedFiles"]["prebuilds/openharmony-arm64.node"] == \
         hashlib.sha256(original["prebuilds/openharmony-arm64.node"]).hexdigest()
     assert updated["README.electron-oh.md"]

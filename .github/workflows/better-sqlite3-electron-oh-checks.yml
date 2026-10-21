@@ -26,6 +26,7 @@ jobs:
           bash -n build-electron-oh.sh
           sh -n ../publish.sh
           python3 -m compileall -q tools tests
+          python3 tools/check-release.py --check-materials
           python3 tests/test-publication.py
           for file in tests/*.cjs examples/*.cjs; do node --check "$file"; done
           python3 - <<'PY'

@@ -49,10 +49,19 @@ def main():
                                       str(baseline), str(candidate)], text=True)
     (artifacts / 'package-comparison.json').write_text(report)
     run('python3', ELECTRON / 'tests/test-package-contract.py', baseline, candidate)
+    run('python3', ELECTRON / 'tests/test-release-guard.py', baseline, candidate)
+    preflight = subprocess.run(['python3', str(ELECTRON / 'tools/check-release.py'),
+                                str(baseline), str(candidate)], capture_output=True, text=True)
+    result = json.loads(preflight.stdout)
+    assert preflight.returncode == 1 and result['status'] == 'blocked'
+    assert any('local test/self-signed' in error for error in result['errors'])
+    (artifacts / 'release-preflight.json').write_text(preflight.stdout)
+    print('PASS: release preflight rejects the local-only CI package')
+    materials = json.loads((ELECTRON / 'release-materials.lock.json').read_text())
     (artifacts / 'build-result.json').write_text(json.dumps({
         'status':'built-not-published', 'candidateSha256':hashlib.sha256(candidate.read_bytes()).hexdigest(),
         'baselineSha256':BASELINE_SHA256, 'nodeRuntime':'not-run', 'electronOhHap':'not-run',
-        'signature':'unsigned-local-only', 'notices':'pending-review'}, indent=2)+'\n')
+        'signature':'unsigned-local-only', 'notices':materials['shimAuthorization']['status']}, indent=2)+'\n')
 
 
 if __name__ == '__main__':

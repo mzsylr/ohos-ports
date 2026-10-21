@@ -43,16 +43,23 @@ ports/better-sqlite3/13.0.3/
 | build-electron-oh.sh | 独立构建入口，按脚本自身目录调用 Python，不依赖调用者工作目录。 |
 | electron-oh.lock.json | 固定包版本、Electron/Node/N-API、shim、运行时及 addon 源码身份。 |
 | node-api-headers.lock.json | 固定四份公开 Node-API 头文件的 SHA-256。 |
+| release-materials.lock.json | 固定完整许可文本身份，记录 shim 授权与签名决策的实际状态。 |
+| licenses/* | 保留 Node、node-addon-api 及实测 SDK 的完整许可/notice 文本。 |
+| RELEASE.md | 发行缺口、签名策略、补证方法及正式发布顺序。 |
+| release-evidence.example.json | 最终包、双宿主运行及 HAP 验签报告模板；不是已通过的证据。 |
 | examples/main.cjs | Electron 主进程使用 nativeBinding 的精简接入示例。 |
 | tests/database-smoke.cjs | 两宿主共用的真实 SQL、事务、UDF、聚合、BigInt 等断言。 |
 | tests/electron-oh-smoke.cjs | 检查 Electron 宿主、实际原生文件哈希并执行共享断言。 |
 | tests/node-smoke.cjs | 在独立鸿蒙 Node 中检查原默认加载路径，不传 nativeBinding。 |
 | tests/verify-package.py | 对比 registry 基线与候选 tarball，检查原文件不变及新增文件清单。 |
-| tests/test-package-contract.py | 六类负向包验证：覆盖 Node、改 loader、缺文件、改哈希、混入运行时和改入口。 |
+| tests/test-package-contract.py | 七类负向包验证：覆盖 Node、改 loader、缺文件、改哈希、改 notices、混入运行时和改入口。 |
+| tests/test-release-guard.py | 检查缺证据、声称通过但缺授权、本地包冒充发行包及 notices 被替换的拒绝行为。 |
 | tests/test-publication.py | 以 npm 替身检查原 Node 发布入口的六种情形，不访问发布接口。 |
 | tools/electron_oh.py | 交叉编译、链接 shim/静态 libc++、ELF 校验、可选签名和独立打包。 |
 | tools/ci-build-electron-oh.py | 获取并校验 Node 基线，调用本目录构建入口，生成候选包和比较报告；不发布。 |
 | tools/prepare-electron-oh-deps.py | 校验导入官方发行 ZIP、shim 和运行时，生成本地依赖缓存。 |
+| tools/release_materials.py | 校验锁定许可文本，将全文合并到包内现有 notices 文件。 |
+| tools/check-release.py | 检查正式发行包与材料、签名状态及外部证据的绑定，不执行发布。 |
 
 保留在本目录之外的四个修改文件：
 
@@ -115,8 +122,10 @@ cd /path/to/new-candidate-directory
 npm pack --ignore-scripts --pack-destination /path/to/artifacts
 ```
 
---allow-unsigned 仅生成本地 HAP 测试产物。若使用单文件自签名工具，将它替换为
-`--sign-tool /path/to/binary-sign-tool`。strip 必须在签名前完成。
+--allow-unsigned 仅生成本地 HAP 测试产物。`--sign-tool /path/to/binary-sign-tool`
+仅用于本机自签名调试，不作为跨设备公开发行方案。strip 必须在签名前完成。
+本 PR 提议采用应用侧 HAP 签名路线；维护者批准授权与策略后使用 --for-hap-distribution，
+三个模式互斥。详见 [RELEASE.md](RELEASE.md)。
 编译使用上游生成的 SQLite defines，链接 shim、静态 libc++；检查 AArch64、
 注册入口、未解析 N-API/libuv 符号及 DT_NEEDED（当前仅 libc.so）。
 原输入包不被修改，输出目录必须不存在。
@@ -126,12 +135,12 @@ prebuilds/openharmony-arm64.node        原 Node 文件，逐字节保留
 prebuilds/electron-oh/37.2.0/openharmony-arm64/
   better_sqlite3.node                  专用 Electron-OH 文件
   manifest.json                       输入、哈希、编译参数、签名状态
-  THIRD_PARTY_NOTICES.txt              许可来源说明，尚需补齐完整 notices
+  THIRD_PARTY_NOTICES.txt              锁定的完整许可文本及 shim 授权待补状态
 ```
 
-当前 notice 文件明确属于待补齐状态。不能把插件内的许可证概述当作精确 shim
-发行物的授权证明；正式二进制再分发前须收齐 shim、Node/Node-API、node-addon-api、
-NDK 静态 libc++/LLVM 对应 LICENSE/NOTICE。源码 PR 和不发布的验证构建可先审阅。
+Node/Node-API、node-addon-api 和当前 NDK LLVM 的完整许可文本已收集并按哈希锁定，
+构建时合并到 notices。shim 仍缺少对应精确发行物的授权证明，不能以插件内的许可概述代替。
+该缺口及维护者对签名策略的确认，会阻止正式发行模式与发布前检查放行。
 manifest 的运行状态是构建时状态；运行后以外部、绑定制品哈希的报告附证，
 不篡改已经测试过的 tarball 来追认通过。
 
@@ -148,8 +157,8 @@ shim 已静态链接，不需在 HAP 中另外部署 libshim.a，也不向库 np
 ```
 
 关闭二次 strip，保持预编译文件哈希和签名。使用应用签名流程完成 HAP 原生代码签名。
-本轮 demo 使用 SDK hap-sign-tool 的 signCode=1，验签、安装及功能验证均执行；
-这不等于 npm 中 ELF 已完成 standalone self-sign。
+此前 demo 使用 SDK hap-sign-tool 的 signCode=1，验签、安装及功能验证均执行；
+这不等于当前新增 notices 后的 tgz 已完成最终发行回归，也不等于 standalone 分发已验证。
 
 Electron 主进程 app.whenReady() 后使用：
 

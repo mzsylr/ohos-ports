@@ -32,6 +32,7 @@ def main(baseline, candidate):
         "Node loader modified": lambda p: p.update({"lib/binding.js": b"require('electron')"}),
         "Electron binary missing": lambda p: p.pop(prefix + "better_sqlite3.node"),
         "Electron hash mismatch": lambda p: p.update({prefix + "better_sqlite3.node": p[prefix + "better_sqlite3.node"] + b"tampered"}),
+        "license text modified": lambda p: p.update({prefix + "THIRD_PARTY_NOTICES.txt": b"MIT"}),
         "unexpected runtime bundled": lambda p: p.update({"libelectron.so": b"runtime"}),
         "entrypoint changed": lambda p: p.update({"package.json": json.dumps({**json.loads(p["package.json"]), "main": "./electron.js"}).encode()}),
     }
@@ -48,7 +49,7 @@ def main(baseline, candidate):
                 print("PASS: rejects " + title)
             else:
                 raise AssertionError("failed to reject " + title)
-    print("PASS: real candidate plus six incompatible/tampered packages")
+    print("PASS: real candidate plus seven incompatible/tampered packages")
 
 
 if __name__ == "__main__":
