@@ -1,0 +1,50 @@
+.github/workflows/better-sqlite3-electron-oh-build.yml
+  h_3643ac0a69b953 1-37
+.github/workflows/better-sqlite3-electron-oh-checks.yml
+  h_3643ac0a69b953 1-41
+ports/better-sqlite3/13.0.3/.gitignore
+  h_3643ac0a69b953 1-5
+ports/better-sqlite3/13.0.3/README.electron-oh.md
+  h_3643ac0a69b953 1-150
+ports/better-sqlite3/13.0.3/build-electron-oh.sh
+  h_3643ac0a69b953 1-5
+ports/better-sqlite3/13.0.3/electron-oh.lock.json
+  h_3643ac0a69b953 1-18
+ports/better-sqlite3/13.0.3/examples/electron-oh/main.cjs
+  h_3643ac0a69b953 1-18
+ports/better-sqlite3/13.0.3/node-api-headers.lock.json
+  h_3643ac0a69b953 1-6
+ports/better-sqlite3/13.0.3/patchs/0003-electron-oh-package.patch
+  h_3643ac0a69b953 1-25
+ports/better-sqlite3/13.0.3/publish.sh
+  h_3643ac0a69b953 5-28
+ports/better-sqlite3/13.0.3/tests/database-smoke.cjs
+  h_3643ac0a69b953 1-31
+ports/better-sqlite3/13.0.3/tests/electron-oh-smoke.cjs
+  h_3643ac0a69b953 1-22
+ports/better-sqlite3/13.0.3/tests/node-smoke.cjs
+  h_3643ac0a69b953 1-12
+ports/better-sqlite3/13.0.3/tests/test-package-contract.py
+  h_3643ac0a69b953 1-57
+ports/better-sqlite3/13.0.3/tests/test-publication.py
+  h_3643ac0a69b953 1-59
+ports/better-sqlite3/13.0.3/tests/verify-package.py
+  h_3643ac0a69b953 1-46
+ports/better-sqlite3/13.0.3/tools/ci-build-electron-oh.py
+  h_3643ac0a69b953 1-59
+ports/better-sqlite3/13.0.3/tools/electron_oh.py
+  h_3643ac0a69b953 1-174
+ports/better-sqlite3/13.0.3/tools/prepare-electron-oh-deps.py
+  h_3643ac0a69b953 1-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "51ae3bab50971f46f394dfd27e763952287aa308",
+  "prompts": {},
+  "humans": {
+    "h_3643ac0a69b953": {
+      "author": "mzsylr <mazheng20@huawei.com>"
+    }
+  }
+}
